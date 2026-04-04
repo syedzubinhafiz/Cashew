@@ -306,11 +306,20 @@ class _TransactionEntriesState extends State<TransactionEntries> {
               }
               if (transactionWithCategory.transaction.paid &&
                   transactionWithCategory.transaction.categoryFk != "0") {
+                double ratio = amountRatioToPrimaryCurrencyGivenPk(
+                    Provider.of<AllWallets>(context),
+                    transactionWithCategory.transaction.walletFk);
                 double amountForDay =
-                    transactionWithCategory.transaction.amount *
-                        (amountRatioToPrimaryCurrencyGivenPk(
-                            Provider.of<AllWallets>(context),
-                            transactionWithCategory.transaction.walletFk));
+                    transactionWithCategory.transaction.amount * ratio;
+                // For reimbursable expenses, net out what's already been
+                // reimbursed so the summary reflects actual out-of-pocket.
+                if (transactionWithCategory.transaction.isReimbursable &&
+                    !transactionWithCategory.transaction.income &&
+                    transactionWithCategory.transaction.reimbursedAmount > 0) {
+                  amountForDay +=
+                      transactionWithCategory.transaction.reimbursedAmount *
+                          ratio;
+                }
                 totalSpentForDay += amountForDay;
                 if (amountForDay < 0) {
                   totalExpense += amountForDay;

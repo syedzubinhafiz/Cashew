@@ -508,6 +508,149 @@ Future openPayDebtCreditPopup(
   );
 }
 
+Future _createReimbursementIncomeTransaction(
+  Transaction originalTransaction,
+  double amount,
+  String destinationWalletFk,
+) async {
+  // Create an income transaction in the destination wallet linked to the original
+  await database.createOrUpdateTransaction(
+    originalTransaction.copyWith(
+      income: true,
+      amount: amount.abs(),
+      walletFk: destinationWalletFk,
+      dateCreated: DateTime.now(),
+      paid: true,
+      isReimbursable: false,
+      reimbursableAmount: 0.0,
+      reimbursedAmount: 0.0,
+      pairedTransactionFk: Value(originalTransaction.transactionPk),
+      type: Value(null),
+      objectiveFk: Value(null),
+      objectiveLoanFk: Value(null),
+    ),
+    insert: true,
+  );
+}
+
+Future openRecordReimbursementPopup(
+  BuildContext context,
+  Transaction transaction, {
+  Function? runBefore,
+}) async {
+  double remaining =
+      transaction.reimbursableAmount - transaction.reimbursedAmount;
+  String transactionName = await getTransactionLabel(transaction);
+  return await openPopup(
+    context,
+    icon: appStateSettings["outlinedIcons"]
+        ? Icons.receipt_long_outlined
+        : Icons.receipt_long_rounded,
+    title: "Record Reimbursement?",
+    subtitle: transactionName,
+    description:
+        "Remaining: ${convertToMoney(Provider.of<AllWallets>(context, listen: false), remaining)}",
+    onCancelLabel: "cancel".tr(),
+    onCancel: () {
+      popRoute(context, false);
+    },
+    onSubmitLabel: "Full Reimbursement",
+    onSubmit: () async {
+      // Show wallet picker for full reimbursement
+      String selectedWalletFk = transaction.walletFk;
+      dynamic result = await openBottomSheet(
+        context,
+        fullSnap: true,
+        PopupFramework(
+          title: "Reimbursement Received",
+          hasPadding: false,
+          underTitleSpace: false,
+          child: SelectAmount(
+            amountPassed: remaining.toString(),
+            padding: EdgeInsetsDirectional.symmetric(horizontal: 18),
+            onlyShowCurrencyIcon: true,
+            selectedWalletPk: selectedWalletFk,
+            walletPkForCurrency: selectedWalletFk,
+            setSelectedWalletPk: (walletFk) {
+              selectedWalletFk = walletFk;
+            },
+            allowZero: false,
+            allDecimals: true,
+            convertToMoney: true,
+            enableWalletPicker: true,
+            setSelectedAmount: (_, __) {},
+            next: () {
+              popRoute(context, true);
+            },
+            nextLabel: "confirm".tr(),
+            currencyKey: null,
+          ),
+        ),
+      );
+      if (result != true) return;
+      if (runBefore != null) await runBefore();
+      popRoute(context, true);
+      await database.createOrUpdateTransaction(
+        transaction.copyWith(reimbursedAmount: transaction.reimbursableAmount),
+      );
+      await _createReimbursementIncomeTransaction(
+          transaction, remaining, selectedWalletFk);
+    },
+    onExtraLabel2: "Partial Reimbursement",
+    onExtra2: () async {
+      double selectedAmount = remaining;
+      String selectedWalletFk = transaction.walletFk;
+
+      dynamic result = await openBottomSheet(
+        context,
+        fullSnap: true,
+        PopupFramework(
+          title: "Reimbursement Amount",
+          hasPadding: false,
+          underTitleSpace: false,
+          child: SelectAmount(
+            amountPassed: selectedAmount.toString(),
+            padding: EdgeInsetsDirectional.symmetric(horizontal: 18),
+            onlyShowCurrencyIcon: true,
+            selectedWalletPk: selectedWalletFk,
+            walletPkForCurrency: selectedWalletFk,
+            setSelectedWalletPk: (walletFk) {
+              selectedWalletFk = walletFk;
+            },
+            allowZero: true,
+            allDecimals: true,
+            convertToMoney: true,
+            enableWalletPicker: true,
+            setSelectedAmount: (amount, __) {
+              selectedAmount = amount;
+            },
+            next: () {
+              popRoute(context, true);
+            },
+            nextLabel: "set-amount".tr(),
+            currencyKey: null,
+          ),
+        ),
+      );
+      if (selectedAmount == 0 || result != true) return;
+
+      popRoute(context, true);
+
+      double newReimbursedAmount =
+          transaction.reimbursedAmount + selectedAmount.abs();
+      if (newReimbursedAmount > transaction.reimbursableAmount) {
+        newReimbursedAmount = transaction.reimbursableAmount;
+      }
+
+      await database.createOrUpdateTransaction(
+        transaction.copyWith(reimbursedAmount: newReimbursedAmount),
+      );
+      await _createReimbursementIncomeTransaction(
+          transaction, selectedAmount, selectedWalletFk);
+    },
+  );
+}
+
 Future openRemoveSkipPopup(
   BuildContext context,
   Transaction transaction, {

@@ -24,9 +24,17 @@ class TransactionEntryAmount extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    double count = transaction.amount.abs() *
-        (amountRatioToPrimaryCurrencyGivenPk(
-            Provider.of<AllWallets>(context), transaction.walletFk));
+    double ratio = amountRatioToPrimaryCurrencyGivenPk(
+        Provider.of<AllWallets>(context), transaction.walletFk);
+    // For reimbursable expenses, show the net out-of-pocket (gross minus what's
+    // been reimbursed so far). Income-side reimbursement transactions are
+    // unchanged.
+    bool showNetAmount = transaction.isReimbursable &&
+        !transaction.income &&
+        transaction.reimbursedAmount > 0;
+    double grossCount = transaction.amount.abs() * ratio;
+    double count =
+        showNetAmount ? (transaction.amount.abs() - transaction.reimbursedAmount) * ratio : grossCount;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.end,
       mainAxisAlignment: MainAxisAlignment.center,
@@ -74,12 +82,12 @@ class TransactionEntryAmount extends StatelessWidget {
             ),
           ],
         ),
-        // Original amount:
+        // Show gross (original) amount struck-through when partially reimbursed
         AnimatedSizeSwitcher(
-          child: showOtherCurrency
-              ? TextFont(
-                  key: ValueKey(1),
-                  text: convertToMoney(
+          child: showNetAmount
+              ? Text(
+                  key: ValueKey(2),
+                  convertToMoney(
                     Provider.of<AllWallets>(context),
                     transaction.amount.abs(),
                     decimals: Provider.of<AllWallets>(context)
@@ -89,14 +97,35 @@ class TransactionEntryAmount extends StatelessWidget {
                     currencyKey: Provider.of<AllWallets>(context)
                         .indexedByPk[transaction.walletFk]
                         ?.currency,
-                    addCurrencyName: true,
                   ),
-                  fontSize: 12,
-                  textColor: getTransactionAmountColor(context, transaction),
+                  style: TextStyle(
+                    fontSize: 11,
+                    decoration: TextDecoration.lineThrough,
+                    color: getColor(context, "textLight"),
+                    decorationColor: getColor(context, "textLight"),
+                  ),
                 )
-              : Container(
-                  key: ValueKey(0),
-                ),
+              : showOtherCurrency
+                  ? TextFont(
+                      key: ValueKey(1),
+                      text: convertToMoney(
+                        Provider.of<AllWallets>(context),
+                        transaction.amount.abs(),
+                        decimals: Provider.of<AllWallets>(context)
+                                .indexedByPk[transaction.walletFk]
+                                ?.decimals ??
+                            2,
+                        currencyKey: Provider.of<AllWallets>(context)
+                            .indexedByPk[transaction.walletFk]
+                            ?.currency,
+                        addCurrencyName: true,
+                      ),
+                      fontSize: 12,
+                      textColor: getTransactionAmountColor(context, transaction),
+                    )
+                  : Container(
+                      key: ValueKey(0),
+                    ),
         ),
       ],
     );

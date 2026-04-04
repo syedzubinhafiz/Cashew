@@ -160,6 +160,8 @@ class _AddTransactionPageState extends State<AddTransactionPage>
   late bool isAddedToLoanObjective =
       widget.selectedObjective?.type == ObjectiveType.loan ||
           widget.transaction?.objectiveLoanFk != null;
+  bool selectedIsReimbursable = false;
+  double selectedReimbursableAmount = 0;
   // bool isSettingUpBalanceTransfer = false;
 
   String? textAddTransaction = "add-transaction".tr();
@@ -701,6 +703,10 @@ class _AddTransactionPageState extends State<AddTransactionPage>
       objectiveLoanFk: selectedObjectiveLoanPk,
       budgetFksExclude:
           selectedExcludedBudgetPks.isEmpty ? null : selectedExcludedBudgetPks,
+      isReimbursable: selectedIsReimbursable,
+      reimbursableAmount:
+          selectedIsReimbursable ? selectedReimbursableAmount : 0,
+      reimbursedAmount: widget.transaction?.reimbursedAmount ?? 0,
     );
 
     return createdTransaction;
@@ -755,6 +761,8 @@ class _AddTransactionPageState extends State<AddTransactionPage>
       selectedObjectivePk = widget.transaction!.objectiveFk;
       selectedObjectiveLoanPk = widget.transaction!.objectiveLoanFk;
       selectedExcludedBudgetPks = widget.transaction!.budgetFksExclude ?? [];
+      selectedIsReimbursable = widget.transaction!.isReimbursable;
+      selectedReimbursableAmount = widget.transaction!.reimbursableAmount;
       // var amountString = widget.transaction!.amount.toStringAsFixed(2);
       // if (amountString.substring(amountString.length - 2) == "00") {
       //   selectedAmountCalculation =
@@ -1649,6 +1657,90 @@ class _AddTransactionPageState extends State<AddTransactionPage>
                               ],
                             ),
                           ),
+                          if (selectedIncome == false &&
+                              selectedType == null)
+                            Padding(
+                              padding: const EdgeInsetsDirectional.only(
+                                start: 22,
+                                end: 22,
+                                bottom: 8,
+                                top: 5,
+                              ),
+                              child: SettingsContainerSwitch(
+                                icon: appStateSettings["outlinedIcons"]
+                                    ? Icons.receipt_long_outlined
+                                    : Icons.receipt_long_rounded,
+                                title: "Expecting Reimbursement",
+                                enableBorderRadius: true,
+                                backgroundColor: Theme.of(context)
+                                    .colorScheme
+                                    .secondaryContainer
+                                    .withOpacity(0.7),
+                                initialValue: selectedIsReimbursable,
+                                onSwitched: (value) {
+                                  setState(() {
+                                    selectedIsReimbursable = value;
+                                    if (value &&
+                                        selectedReimbursableAmount == 0) {
+                                      selectedReimbursableAmount =
+                                          (selectedAmount ?? 0).abs();
+                                    }
+                                  });
+                                },
+                              ),
+                            ),
+                          if (selectedIsReimbursable &&
+                              selectedIncome == false &&
+                              selectedType == null)
+                            Padding(
+                              padding: const EdgeInsetsDirectional.only(
+                                start: 22,
+                                end: 22,
+                                bottom: 8,
+                              ),
+                              child: TappableTextEntry(
+                                title: "Reimbursable Amount",
+                                placeholder: convertToMoney(
+                                    Provider.of<AllWallets>(context),
+                                    selectedReimbursableAmount),
+                                onTap: () {
+                                  openBottomSheet(
+                                    context,
+                                    fullSnap: true,
+                                    PopupFramework(
+                                      title: "Reimbursable Amount",
+                                      hasPadding: false,
+                                      underTitleSpace: false,
+                                      child: SelectAmount(
+                                        amountPassed:
+                                            selectedReimbursableAmount
+                                                .toString(),
+                                        padding:
+                                            EdgeInsetsDirectional.symmetric(
+                                                horizontal: 18),
+                                        onlyShowCurrencyIcon: true,
+                                        selectedWalletPk: selectedWalletPk,
+                                        walletPkForCurrency: selectedWalletPk,
+                                        allowZero: true,
+                                        allDecimals: true,
+                                        convertToMoney: true,
+                                        setSelectedAmount: (amount, __) {
+                                          setState(() {
+                                            selectedReimbursableAmount =
+                                                amount.abs();
+                                          });
+                                        },
+                                        next: () {
+                                          popRoute(context);
+                                        },
+                                        nextLabel: "set-amount".tr(),
+                                        currencyKey: null,
+                                      ),
+                                    ),
+                                  );
+                                },
+                              ),
+                            ),
                           HorizontalBreakAbove(
                             enabled: enableDoubleColumn(context),
                             child: Padding(

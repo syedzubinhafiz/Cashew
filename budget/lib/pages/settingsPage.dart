@@ -5,6 +5,7 @@ import 'package:budget/pages/addTransactionPage.dart';
 import 'package:budget/pages/billSplitter.dart';
 import 'package:budget/pages/budgetsListPage.dart';
 import 'package:budget/pages/creditDebtTransactionsPage.dart';
+import 'package:budget/pages/reimbursementsPage.dart';
 import 'package:budget/pages/editHomePage.dart';
 import 'package:budget/pages/editObjectivesPage.dart';
 import 'package:budget/pages/homePage/homePageNetWorth.dart';
@@ -295,6 +296,20 @@ class MorePages extends StatelessWidget {
                 ),
               ],
             ),
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Expanded(
+                child: SettingsContainerOpenPage(
+                  openPage: ReimbursementsPage(),
+                  title: navBarIconsData["reimbursements"]!.label,
+                  icon: navBarIconsData["reimbursements"]!.iconData,
+                  isOutlined: true,
+                ),
+              ),
+              Expanded(child: SizedBox.shrink()),
+            ],
+          ),
           if (hasSideNavigation == false)
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,

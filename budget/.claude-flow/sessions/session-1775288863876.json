@@ -1,0 +1,21 @@
+{
+  "id": "session-1775288863876",
+  "startedAt": "2026-04-04T07:47:43.877Z",
+  "cwd": "/Users/syedzubinhafiz/Cashew/budget",
+  "context": {
+    "lastMatchedPatterns": [
+      "mem-project_reimbursement----",
+      "mem-feedback_build_runner----",
+      "mem-MEMORY-memory-index"
+    ]
+  },
+  "metrics": {
+    "edits": 7,
+    "commands": 0,
+    "tasks": 0,
+    "errors": 0
+  },
+  "updatedAt": "2026-04-04T08:28:50.984Z",
+  "endedAt": "2026-04-04T08:29:47.039Z",
+  "duration": 2523164
+}

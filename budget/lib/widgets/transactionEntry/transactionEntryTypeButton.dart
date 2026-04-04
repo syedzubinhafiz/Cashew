@@ -96,6 +96,24 @@ class TransactionEntryActionButton extends StatelessWidget {
                   : TransactionSpecialType.credit,
             ),
           ),
+        if (transaction.isReimbursable &&
+            transaction.type == null &&
+            transaction.objectiveLoanFk == null)
+          ActionButton(
+            padding: padding,
+            dealtWith:
+                transaction.reimbursedAmount >= transaction.reimbursableAmount,
+            message: transaction.reimbursedAmount >=
+                    transaction.reimbursableAmount
+                ? "reimbursed"
+                : "reimburse?",
+            onTap: () => openRecordReimbursementPopup(context, transaction),
+            containerColor: containerColor,
+            iconColor: iconColor,
+            iconData: appStateSettings["outlinedIcons"]
+                ? Icons.receipt_long_outlined
+                : Icons.receipt_long_rounded,
+          ),
       ],
     );
   }

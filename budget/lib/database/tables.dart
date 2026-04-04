@@ -26,7 +26,7 @@ import 'package:budget/pages/activityPage.dart';
 import 'package:flutter/material.dart' show RangeValues;
 part 'tables.g.dart';
 
-int schemaVersionGlobal = 46;
+int schemaVersionGlobal = 47;
 
 // To update and migrate the database, check the README
 
@@ -334,6 +334,12 @@ class Transactions extends Table {
       text().references(Objectives, #objectivePk).nullable()();
   TextColumn get budgetFksExclude =>
       text().map(const StringListInColumnConverter()).nullable()();
+  BoolColumn get isReimbursable =>
+      boolean().withDefault(const Constant(false))();
+  RealColumn get reimbursableAmount =>
+      real().withDefault(const Constant(0))();
+  RealColumn get reimbursedAmount =>
+      real().withDefault(const Constant(0))();
 
   @override
   Set<Column> get primaryKey => {transactionPk};
@@ -692,6 +698,15 @@ class CategoryWithTotal {
 class FinanceDatabase extends _$FinanceDatabase {
   // FinanceDatabase() : super(_openConnection());
   FinanceDatabase(QueryExecutor e) : super(e);
+
+  // Returns the raw transaction amount.
+  // Reimbursements are tracked via paired income transactions (created when a
+  // reimbursement is recorded), which naturally cancel out the expense in
+  // category/budget totals. reimbursedAmount is only used for progress tracking
+  // on the original transaction and should not affect financial calculations.
+  Expression<double> netAmount($TransactionsTable tbl) {
+    return tbl.amount;
+  }
 
   // you should bump this number whenever you change or add a table definition
   @override
@@ -1164,6 +1179,33 @@ class FinanceDatabase extends _$FinanceDatabase {
                         e.toString());
               }
             },
+            from46To47: (m, schema) async {
+              print("46 to 47");
+              try {
+                await m.addColumn(schema.transactions,
+                    schema.transactions.isReimbursable);
+              } catch (e) {
+                print(
+                    "Migration Error: Error creating column transactions.isReimbursable " +
+                        e.toString());
+              }
+              try {
+                await m.addColumn(schema.transactions,
+                    schema.transactions.reimbursableAmount);
+              } catch (e) {
+                print(
+                    "Migration Error: Error creating column transactions.reimbursableAmount " +
+                        e.toString());
+              }
+              try {
+                await m.addColumn(schema.transactions,
+                    schema.transactions.reimbursedAmount);
+              } catch (e) {
+                print(
+                    "Migration Error: Error creating column transactions.reimbursedAmount " +
+                        e.toString());
+              }
+            },
           ),
         );
       },
@@ -1378,7 +1420,7 @@ class FinanceDatabase extends _$FinanceDatabase {
     List<Stream<double?>> mergedStreams = [];
     for (TransactionWallet wallet in allWallets.list) {
       final totalAmt =
-          transactions.amount.sum(filter: transactions.paid.equals(true));
+          netAmount(transactions).sum(filter: transactions.paid.equals(true));
       final query = selectOnly(transactions)
         ..join([
           innerJoin(categories,
@@ -2409,7 +2451,7 @@ class FinanceDatabase extends _$FinanceDatabase {
     JoinedSelectStatement<HasResultSet, dynamic> query;
     final totalCount = transactions.transactionPk.count();
     final totalSpent =
-        transactions.amount.sum(filter: transactions.paid.equals(true));
+        netAmount(transactions).sum(filter: transactions.paid.equals(true));
     query = (select(wallets)
           ..where((w) => ((homePageWidgetDisplay != null
                   ? w.homePageWidgetDisplay
@@ -5629,7 +5671,7 @@ class FinanceDatabase extends _$FinanceDatabase {
     List<Stream<double?>> mergedStreams = [];
     for (TransactionWallet wallet in allWallets.list) {
       final totalAmt =
-          transactions.amount.sum(filter: transactions.paid.equals(true));
+          netAmount(transactions).sum(filter: transactions.paid.equals(true));
       JoinedSelectStatement<$TransactionsTable, Transaction> query;
 
       query = selectOnly(transactions)
@@ -5652,7 +5694,7 @@ class FinanceDatabase extends _$FinanceDatabase {
     List<Stream<double?>> mergedStreams = [];
     for (TransactionWallet wallet in allWallets.list) {
       final totalAmt =
-          transactions.amount.sum(filter: transactions.paid.equals(true));
+          netAmount(transactions).sum(filter: transactions.paid.equals(true));
       JoinedSelectStatement<$TransactionsTable, Transaction> query;
 
       query = selectOnly(transactions)
@@ -5676,7 +5718,7 @@ class FinanceDatabase extends _$FinanceDatabase {
     double totalAmount = 0;
     for (TransactionWallet wallet in allWallets.list) {
       final totalAmt =
-          transactions.amount.sum(filter: transactions.paid.equals(true));
+          netAmount(transactions).sum(filter: transactions.paid.equals(true));
       JoinedSelectStatement<$TransactionsTable, Transaction> query;
 
       query = selectOnly(transactions)
@@ -5701,7 +5743,7 @@ class FinanceDatabase extends _$FinanceDatabase {
       AllWallets allWallets, List<String> transactionPks) {
     List<Stream<double?>> mergedStreams = [];
     for (TransactionWallet wallet in allWallets.list) {
-      final totalAmt = transactions.amount.sum();
+      final totalAmt = netAmount(transactions).sum();
       JoinedSelectStatement<$TransactionsTable, Transaction> query;
 
       query = (selectOnly(transactions)
@@ -5737,7 +5779,7 @@ class FinanceDatabase extends _$FinanceDatabase {
     List<Stream<double?>> mergedStreams = [];
     for (TransactionWallet wallet in allWallets.list) {
       final totalAmt =
-          transactions.amount.sum(filter: transactions.paid.equals(true));
+          netAmount(transactions).sum(filter: transactions.paid.equals(true));
 
       JoinedSelectStatement<$TransactionsTable, Transaction> query =
           (selectOnly(transactions)
@@ -6125,7 +6167,7 @@ class FinanceDatabase extends _$FinanceDatabase {
     List<Stream<double?>> mergedStreams = [];
     for (TransactionWallet wallet in allWallets.list) {
       final totalAmt =
-          transactions.amount.sum(filter: transactions.paid.equals(true));
+          netAmount(transactions).sum(filter: transactions.paid.equals(true));
       JoinedSelectStatement<$TransactionsTable, Transaction> query =
           (selectOnly(transactions)
             ..addColumns([totalAmt])
@@ -6167,7 +6209,7 @@ class FinanceDatabase extends _$FinanceDatabase {
     List<Stream<double?>> mergedStreams = [];
     for (TransactionWallet wallet in allWallets.list) {
       final totalAmt =
-          transactions.amount.sum(filter: transactions.paid.equals(true));
+          netAmount(transactions).sum(filter: transactions.paid.equals(true));
       JoinedSelectStatement<$TransactionsTable, Transaction> query;
 
       query = (selectOnly(transactions)
@@ -6490,7 +6532,7 @@ class FinanceDatabase extends _$FinanceDatabase {
     for (TransactionWallet wallet in allWallets.list) {
       if (walletPks != null && walletPks.contains(wallet.walletPk) == false)
         continue;
-      final totalAmt = transactions.amount.sum(
+      final totalAmt = netAmount(transactions).sum(
           filter: paidOnly == true
               ? transactions.paid.equals(true)
               : Constant(true));
@@ -6578,7 +6620,7 @@ class FinanceDatabase extends _$FinanceDatabase {
     for (TransactionWallet wallet in allWallets.list) {
       if (walletPks != null && walletPks.contains(wallet.walletPk) == false)
         continue;
-      final totalAmt = transactions.amount.sum(
+      final totalAmt = netAmount(transactions).sum(
           filter: (paidOnly == true
               ? transactions.paid.equals(true)
               : Constant(true)));
@@ -6724,10 +6766,10 @@ class FinanceDatabase extends _$FinanceDatabase {
     List<Stream<TotalWithCount?>> mergedStreams = [];
     for (TransactionWallet wallet in allWallets.list) {
       final totalAmt = useAbsoluteSum
-          ? transactions.amount
+          ? netAmount(transactions)
               .abs()
               .sum(filter: transactions.paid.equals(true))
-          : transactions.amount.sum(filter: transactions.paid.equals(true));
+          : netAmount(transactions).sum(filter: transactions.paid.equals(true));
       final totalCount = transactions.transactionPk.count();
       final query = selectOnly(transactions)
         ..addColumns([totalAmt, totalCount])
@@ -6770,7 +6812,7 @@ class FinanceDatabase extends _$FinanceDatabase {
     DateTime? startDate,
   }) {
     final totalAmt =
-        transactions.amount.sum(filter: transactions.paid.equals(true));
+        netAmount(transactions).sum(filter: transactions.paid.equals(true));
     final query = selectOnly(transactions)
       ..addColumns([totalAmt])
       ..where((startDate == null
@@ -6797,7 +6839,7 @@ class FinanceDatabase extends _$FinanceDatabase {
   }) {
     List<Stream<TotalWithCount?>> mergedStreams = [];
     for (TransactionWallet wallet in allWallets.list) {
-      final totalAmt = transactions.amount.sum();
+      final totalAmt = netAmount(transactions).sum();
       final totalCount = transactions.transactionPk.count();
       final $CategoriesTable subCategories = alias(categories, 'subCategories');
       final query = selectOnly(transactions)
@@ -6882,7 +6924,7 @@ class FinanceDatabase extends _$FinanceDatabase {
   }) {
     List<Stream<TotalWithCount?>> mergedStreams = [];
     for (TransactionWallet wallet in allWallets.list) {
-      final totalAmt = transactions.amount.sum();
+      final totalAmt = netAmount(transactions).sum();
       final totalCount = transactions.transactionPk.count();
       final $CategoriesTable subCategories = alias(categories, 'subCategories');
       final query = selectOnly(transactions)
@@ -7049,6 +7091,56 @@ class FinanceDatabase extends _$FinanceDatabase {
     return query.map((row) => row.readTable(transactions)).watch();
   }
 
+  // Reimbursement queries
+  Stream<List<Transaction>> watchPendingReimbursements() {
+    return (select(transactions)
+          ..where((t) =>
+              t.isReimbursable.equals(true) &
+              t.reimbursableAmount.isBiggerThan(t.reimbursedAmount))
+          ..orderBy([(t) => OrderingTerm.desc(t.dateCreated)]))
+        .watch();
+  }
+
+  Stream<List<Transaction>> watchAllReimbursableTransactions(
+      {bool? isPending}) {
+    return (select(transactions)
+          ..where((t) {
+            Expression<bool> base = t.isReimbursable.equals(true);
+            if (isPending == true) {
+              return base &
+                  t.reimbursableAmount.isBiggerThan(t.reimbursedAmount);
+            } else if (isPending == false) {
+              return base &
+                  (t.reimbursedAmount
+                      .isBiggerOrEqual(t.reimbursableAmount));
+            }
+            return base;
+          })
+          ..orderBy([(t) => OrderingTerm.desc(t.dateCreated)]))
+        .watch();
+  }
+
+  Stream<double?> watchTotalPendingReimbursements(AllWallets allWallets) {
+    List<Stream<double?>> mergedStreams = [];
+    for (TransactionWallet wallet in allWallets.list) {
+      final totalAmt =
+          (transactions.reimbursableAmount - transactions.reimbursedAmount)
+              .sum(
+                  filter: transactions.isReimbursable.equals(true) &
+                      transactions.reimbursableAmount
+                          .isBiggerThan(transactions.reimbursedAmount));
+      final query = selectOnly(transactions)
+        ..addColumns([totalAmt])
+        ..where(transactions.walletFk.equals(wallet.walletPk));
+      mergedStreams.add(query
+          .map((row) =>
+              (row.read(totalAmt) ?? 0) *
+              (amountRatioToPrimaryCurrency(allWallets, wallet.currency)))
+          .watchSingle());
+    }
+    return totalDoubleStream(mergedStreams);
+  }
+
   Stream<TotalWithCount?> watchTotalCountOfTransactionsWithSearchFilters({
     required AllWallets allWallets,
     SearchFilters? searchFilters,
@@ -7058,7 +7150,7 @@ class FinanceDatabase extends _$FinanceDatabase {
   }) {
     List<Stream<TotalWithCount?>> mergedStreams = [];
     for (TransactionWallet wallet in allWallets.list) {
-      final totalAmt = transactions.amount.sum();
+      final totalAmt = netAmount(transactions).sum();
       final totalCount = transactions.transactionPk.count();
       final $CategoriesTable subCategories = alias(categories, 'subCategories');
       final query = selectOnly(transactions)
@@ -7229,7 +7321,7 @@ class FinanceDatabase extends _$FinanceDatabase {
     List<Stream<double?>> mergedStreams = [];
     for (TransactionWallet wallet in allWallets.list) {
       final totalAmt =
-          transactions.amount.sum(filter: transactions.paid.equals(true));
+          netAmount(transactions).sum(filter: transactions.paid.equals(true));
       final query = selectOnly(transactions)
         ..addColumns([totalAmt])
         ..where(
@@ -7309,7 +7401,7 @@ class FinanceDatabase extends _$FinanceDatabase {
     DateTime startDate = start.justDay(dayOffset: -1);
     List<Stream<double?>> mergedStreams = [];
     for (TransactionWallet wallet in allWallets.list) {
-      final totalAmt = transactions.amount.sum(
+      final totalAmt = netAmount(transactions).sum(
           filter:
               evaluateIfNull(transactions.paid.equals(true), isPaidOnly, true));
       final query = selectOnly(transactions)

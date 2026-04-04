@@ -1,0 +1,42 @@
+{
+  "version": 1,
+  "updatedAt": 1775291387036,
+  "nodeCount": 4,
+  "nodes": {
+    "mem-MEMORY-memory-index": {
+      "id": "mem-MEMORY-memory-index",
+      "category": "core",
+      "confidence": 0.5,
+      "accessCount": 0,
+      "createdAt": 1775288863883
+    },
+    "mem-feedback_build_runner----": {
+      "id": "mem-feedback_build_runner----",
+      "category": "feedback_build_runner",
+      "confidence": 0.5,
+      "accessCount": 0,
+      "createdAt": 1775288863884
+    },
+    "mem-project_reimbursement----": {
+      "id": "mem-project_reimbursement----",
+      "category": "project_reimbursement",
+      "confidence": 0.5,
+      "accessCount": 0,
+      "createdAt": 1775288863884
+    },
+    "insight-1775291387035-43i4": {
+      "id": "insight-1775291387035-43i4",
+      "category": "insights",
+      "confidence": 0.5,
+      "accessCount": 0,
+      "createdAt": 1775291387035
+    }
+  },
+  "edges": [],
+  "pageRanks": {
+    "mem-MEMORY-memory-index": 0.25,
+    "mem-feedback_build_runner----": 0.25,
+    "mem-project_reimbursement----": 0.25,
+    "insight-1775291387035-43i4": 0.25
+  }
+}

@@ -2124,6 +2124,32 @@ class $TransactionsTable extends Transactions
               type: DriftSqlType.string, requiredDuringInsert: false)
           .withConverter<List<String>?>(
               $TransactionsTable.$converterbudgetFksExcluden);
+  static const VerificationMeta _isReimbursableMeta =
+      const VerificationMeta('isReimbursable');
+  @override
+  late final GeneratedColumn<bool> isReimbursable = GeneratedColumn<bool>(
+      'is_reimbursable', aliasedName, false,
+      type: DriftSqlType.bool,
+      requiredDuringInsert: false,
+      defaultConstraints: GeneratedColumn.constraintIsAlways(
+          'CHECK ("is_reimbursable" IN (0, 1))'),
+      defaultValue: const Constant(false));
+  static const VerificationMeta _reimbursableAmountMeta =
+      const VerificationMeta('reimbursableAmount');
+  @override
+  late final GeneratedColumn<double> reimbursableAmount = GeneratedColumn<double>(
+      'reimbursable_amount', aliasedName, false,
+      type: DriftSqlType.double,
+      requiredDuringInsert: false,
+      defaultValue: const Constant(0.0));
+  static const VerificationMeta _reimbursedAmountMeta =
+      const VerificationMeta('reimbursedAmount');
+  @override
+  late final GeneratedColumn<double> reimbursedAmount = GeneratedColumn<double>(
+      'reimbursed_amount', aliasedName, false,
+      type: DriftSqlType.double,
+      requiredDuringInsert: false,
+      defaultValue: const Constant(0.0));
   @override
   List<GeneratedColumn> get $columns => [
         transactionPk,
@@ -2156,7 +2182,10 @@ class $TransactionsTable extends Transactions
         sharedReferenceBudgetPk,
         objectiveFk,
         objectiveLoanFk,
-        budgetFksExclude
+        budgetFksExclude,
+        isReimbursable,
+        reimbursableAmount,
+        reimbursedAmount,
       ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -2323,6 +2352,24 @@ class $TransactionsTable extends Transactions
               data['objective_loan_fk']!, _objectiveLoanFkMeta));
     }
     context.handle(_budgetFksExcludeMeta, const VerificationResult.success());
+    if (data.containsKey('is_reimbursable')) {
+      context.handle(
+          _isReimbursableMeta,
+          isReimbursable.isAcceptableOrUnknown(
+              data['is_reimbursable']!, _isReimbursableMeta));
+    }
+    if (data.containsKey('reimbursable_amount')) {
+      context.handle(
+          _reimbursableAmountMeta,
+          reimbursableAmount.isAcceptableOrUnknown(
+              data['reimbursable_amount']!, _reimbursableAmountMeta));
+    }
+    if (data.containsKey('reimbursed_amount')) {
+      context.handle(
+          _reimbursedAmountMeta,
+          reimbursedAmount.isAcceptableOrUnknown(
+              data['reimbursed_amount']!, _reimbursedAmountMeta));
+    }
     return context;
   }
 
@@ -2404,6 +2451,15 @@ class $TransactionsTable extends Transactions
       budgetFksExclude: $TransactionsTable.$converterbudgetFksExcluden.fromSql(
           attachedDatabase.typeMapping.read(DriftSqlType.string,
               data['${effectivePrefix}budget_fks_exclude'])),
+      isReimbursable: attachedDatabase.typeMapping
+          .read(DriftSqlType.bool, data['${effectivePrefix}is_reimbursable']) ??
+          false,
+      reimbursableAmount: attachedDatabase.typeMapping
+          .read(DriftSqlType.double, data['${effectivePrefix}reimbursable_amount']) ??
+          0.0,
+      reimbursedAmount: attachedDatabase.typeMapping
+          .read(DriftSqlType.double, data['${effectivePrefix}reimbursed_amount']) ??
+          0.0,
     );
   }
 
@@ -2469,6 +2525,9 @@ class Transaction extends DataClass implements Insertable<Transaction> {
   final String? objectiveFk;
   final String? objectiveLoanFk;
   final List<String>? budgetFksExclude;
+  final bool isReimbursable;
+  final double reimbursableAmount;
+  final double reimbursedAmount;
   const Transaction(
       {required this.transactionPk,
       this.pairedTransactionFk,
@@ -2500,7 +2559,10 @@ class Transaction extends DataClass implements Insertable<Transaction> {
       this.sharedReferenceBudgetPk,
       this.objectiveFk,
       this.objectiveLoanFk,
-      this.budgetFksExclude});
+      this.budgetFksExclude,
+      this.isReimbursable = false,
+      this.reimbursableAmount = 0.0,
+      this.reimbursedAmount = 0.0});
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
     final map = <String, Expression>{};
@@ -2587,6 +2649,9 @@ class Transaction extends DataClass implements Insertable<Transaction> {
       map['budget_fks_exclude'] =
           Variable<String>(converter.toSql(budgetFksExclude));
     }
+    map['is_reimbursable'] = Variable<bool>(isReimbursable);
+    map['reimbursable_amount'] = Variable<double>(reimbursableAmount);
+    map['reimbursed_amount'] = Variable<double>(reimbursedAmount);
     return map;
   }
 
@@ -2666,6 +2731,9 @@ class Transaction extends DataClass implements Insertable<Transaction> {
       budgetFksExclude: budgetFksExclude == null && nullToAbsent
           ? const Value.absent()
           : Value(budgetFksExclude),
+      isReimbursable: Value(isReimbursable),
+      reimbursableAmount: Value(reimbursableAmount),
+      reimbursedAmount: Value(reimbursedAmount),
     );
   }
 
@@ -2717,6 +2785,11 @@ class Transaction extends DataClass implements Insertable<Transaction> {
       objectiveLoanFk: serializer.fromJson<String?>(json['objectiveLoanFk']),
       budgetFksExclude:
           serializer.fromJson<List<String>?>(json['budgetFksExclude']),
+      isReimbursable: serializer.fromJson<bool>(json['isReimbursable'] ?? false),
+      reimbursableAmount:
+          serializer.fromJson<double>(json['reimbursableAmount'] ?? 0.0),
+      reimbursedAmount:
+          serializer.fromJson<double>(json['reimbursedAmount'] ?? 0.0),
     );
   }
   @override
@@ -2763,6 +2836,9 @@ class Transaction extends DataClass implements Insertable<Transaction> {
       'objectiveFk': serializer.toJson<String?>(objectiveFk),
       'objectiveLoanFk': serializer.toJson<String?>(objectiveLoanFk),
       'budgetFksExclude': serializer.toJson<List<String>?>(budgetFksExclude),
+      'isReimbursable': serializer.toJson<bool>(isReimbursable),
+      'reimbursableAmount': serializer.toJson<double>(reimbursableAmount),
+      'reimbursedAmount': serializer.toJson<double>(reimbursedAmount),
     };
   }
 
@@ -2797,7 +2873,10 @@ class Transaction extends DataClass implements Insertable<Transaction> {
           Value<String?> sharedReferenceBudgetPk = const Value.absent(),
           Value<String?> objectiveFk = const Value.absent(),
           Value<String?> objectiveLoanFk = const Value.absent(),
-          Value<List<String>?> budgetFksExclude = const Value.absent()}) =>
+          Value<List<String>?> budgetFksExclude = const Value.absent(),
+          bool? isReimbursable,
+          double? reimbursableAmount,
+          double? reimbursedAmount}) =>
       Transaction(
         transactionPk: transactionPk ?? this.transactionPk,
         pairedTransactionFk: pairedTransactionFk.present
@@ -2857,6 +2936,9 @@ class Transaction extends DataClass implements Insertable<Transaction> {
         budgetFksExclude: budgetFksExclude.present
             ? budgetFksExclude.value
             : this.budgetFksExclude,
+        isReimbursable: isReimbursable ?? this.isReimbursable,
+        reimbursableAmount: reimbursableAmount ?? this.reimbursableAmount,
+        reimbursedAmount: reimbursedAmount ?? this.reimbursedAmount,
       );
   @override
   String toString() {
@@ -2894,7 +2976,10 @@ class Transaction extends DataClass implements Insertable<Transaction> {
           ..write('sharedReferenceBudgetPk: $sharedReferenceBudgetPk, ')
           ..write('objectiveFk: $objectiveFk, ')
           ..write('objectiveLoanFk: $objectiveLoanFk, ')
-          ..write('budgetFksExclude: $budgetFksExclude')
+          ..write('budgetFksExclude: $budgetFksExclude, ')
+          ..write('isReimbursable: $isReimbursable, ')
+          ..write('reimbursableAmount: $reimbursableAmount, ')
+          ..write('reimbursedAmount: $reimbursedAmount')
           ..write(')'))
         .toString();
   }
@@ -2931,7 +3016,10 @@ class Transaction extends DataClass implements Insertable<Transaction> {
         sharedReferenceBudgetPk,
         objectiveFk,
         objectiveLoanFk,
-        budgetFksExclude
+        budgetFksExclude,
+        isReimbursable,
+        reimbursableAmount,
+        reimbursedAmount,
       ]);
   @override
   bool operator ==(Object other) =>
@@ -2970,7 +3058,10 @@ class Transaction extends DataClass implements Insertable<Transaction> {
           other.sharedReferenceBudgetPk == this.sharedReferenceBudgetPk &&
           other.objectiveFk == this.objectiveFk &&
           other.objectiveLoanFk == this.objectiveLoanFk &&
-          other.budgetFksExclude == this.budgetFksExclude);
+          other.budgetFksExclude == this.budgetFksExclude &&
+          other.isReimbursable == this.isReimbursable &&
+          other.reimbursableAmount == this.reimbursableAmount &&
+          other.reimbursedAmount == this.reimbursedAmount);
 }
 
 class TransactionsCompanion extends UpdateCompanion<Transaction> {
@@ -3005,6 +3096,9 @@ class TransactionsCompanion extends UpdateCompanion<Transaction> {
   final Value<String?> objectiveFk;
   final Value<String?> objectiveLoanFk;
   final Value<List<String>?> budgetFksExclude;
+  final Value<bool> isReimbursable;
+  final Value<double> reimbursableAmount;
+  final Value<double> reimbursedAmount;
   final Value<int> rowid;
   const TransactionsCompanion({
     this.transactionPk = const Value.absent(),
@@ -3038,6 +3132,9 @@ class TransactionsCompanion extends UpdateCompanion<Transaction> {
     this.objectiveFk = const Value.absent(),
     this.objectiveLoanFk = const Value.absent(),
     this.budgetFksExclude = const Value.absent(),
+    this.isReimbursable = const Value.absent(),
+    this.reimbursableAmount = const Value.absent(),
+    this.reimbursedAmount = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   TransactionsCompanion.insert({
@@ -3072,6 +3169,9 @@ class TransactionsCompanion extends UpdateCompanion<Transaction> {
     this.objectiveFk = const Value.absent(),
     this.objectiveLoanFk = const Value.absent(),
     this.budgetFksExclude = const Value.absent(),
+    this.isReimbursable = const Value.absent(),
+    this.reimbursableAmount = const Value.absent(),
+    this.reimbursedAmount = const Value.absent(),
     this.rowid = const Value.absent(),
   })  : name = Value(name),
         amount = Value(amount),
@@ -3109,6 +3209,9 @@ class TransactionsCompanion extends UpdateCompanion<Transaction> {
     Expression<String>? objectiveFk,
     Expression<String>? objectiveLoanFk,
     Expression<String>? budgetFksExclude,
+    Expression<bool>? isReimbursable,
+    Expression<double>? reimbursableAmount,
+    Expression<double>? reimbursedAmount,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -3149,6 +3252,9 @@ class TransactionsCompanion extends UpdateCompanion<Transaction> {
       if (objectiveFk != null) 'objective_fk': objectiveFk,
       if (objectiveLoanFk != null) 'objective_loan_fk': objectiveLoanFk,
       if (budgetFksExclude != null) 'budget_fks_exclude': budgetFksExclude,
+      if (isReimbursable != null) 'is_reimbursable': isReimbursable,
+      if (reimbursableAmount != null) 'reimbursable_amount': reimbursableAmount,
+      if (reimbursedAmount != null) 'reimbursed_amount': reimbursedAmount,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -3185,6 +3291,9 @@ class TransactionsCompanion extends UpdateCompanion<Transaction> {
       Value<String?>? objectiveFk,
       Value<String?>? objectiveLoanFk,
       Value<List<String>?>? budgetFksExclude,
+      Value<bool>? isReimbursable,
+      Value<double>? reimbursableAmount,
+      Value<double>? reimbursedAmount,
       Value<int>? rowid}) {
     return TransactionsCompanion(
       transactionPk: transactionPk ?? this.transactionPk,
@@ -3223,6 +3332,9 @@ class TransactionsCompanion extends UpdateCompanion<Transaction> {
       objectiveFk: objectiveFk ?? this.objectiveFk,
       objectiveLoanFk: objectiveLoanFk ?? this.objectiveLoanFk,
       budgetFksExclude: budgetFksExclude ?? this.budgetFksExclude,
+      isReimbursable: isReimbursable ?? this.isReimbursable,
+      reimbursableAmount: reimbursableAmount ?? this.reimbursableAmount,
+      reimbursedAmount: reimbursedAmount ?? this.reimbursedAmount,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -3340,6 +3452,15 @@ class TransactionsCompanion extends UpdateCompanion<Transaction> {
       map['budget_fks_exclude'] =
           Variable<String>(converter.toSql(budgetFksExclude.value));
     }
+    if (isReimbursable.present) {
+      map['is_reimbursable'] = Variable<bool>(isReimbursable.value);
+    }
+    if (reimbursableAmount.present) {
+      map['reimbursable_amount'] = Variable<double>(reimbursableAmount.value);
+    }
+    if (reimbursedAmount.present) {
+      map['reimbursed_amount'] = Variable<double>(reimbursedAmount.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -3383,6 +3504,9 @@ class TransactionsCompanion extends UpdateCompanion<Transaction> {
           ..write('objectiveFk: $objectiveFk, ')
           ..write('objectiveLoanFk: $objectiveLoanFk, ')
           ..write('budgetFksExclude: $budgetFksExclude, ')
+          ..write('isReimbursable: $isReimbursable, ')
+          ..write('reimbursableAmount: $reimbursableAmount, ')
+          ..write('reimbursedAmount: $reimbursedAmount, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();

@@ -738,6 +738,15 @@ class TransactionEntry extends StatelessWidget {
                       openPage: openPage,
                     ),
                   );
+                  if (transaction.isReimbursable) {
+                    transactionEntryWidget = Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        transactionEntryWidget,
+                        _ReimbursementProgressBar(transaction: transaction),
+                      ],
+                    );
+                  }
                   // Only render the visibility detector when we know this transaction entry
                   // needs to be animated. VisibilityDetector is expensive!
                   // As soon as it's rendered and the animation is triggered
@@ -761,6 +770,92 @@ class TransactionEntry extends StatelessWidget {
             },
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _ReimbursementProgressBar extends StatelessWidget {
+  const _ReimbursementProgressBar({required this.transaction});
+  final Transaction transaction;
+
+  @override
+  Widget build(BuildContext context) {
+    double progress = transaction.reimbursableAmount > 0
+        ? (transaction.reimbursedAmount / transaction.reimbursableAmount)
+            .clamp(0.0, 1.0)
+        : 0;
+    bool isComplete =
+        transaction.reimbursedAmount >= transaction.reimbursableAmount;
+    double netCost = transaction.amount.abs() - transaction.reimbursedAmount;
+    double pending = (transaction.reimbursableAmount - transaction.reimbursedAmount)
+        .clamp(0.0, double.infinity);
+    return Padding(
+      padding:
+          const EdgeInsetsDirectional.only(start: 25, end: 25, bottom: 8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              // Left: net cost label
+              TextFont(
+                text: isComplete
+                    ? "Net cost: ${convertToMoney(Provider.of<AllWallets>(context), netCost)}"
+                    : "Net so far: ${convertToMoney(Provider.of<AllWallets>(context), netCost)}",
+                fontSize: 12,
+                fontWeight: FontWeight.bold,
+                textColor: isComplete
+                    ? getColor(context, "incomeAmount")
+                    : getColor(context, "black"),
+              ),
+              // Right: pending or "fully reimbursed"
+              TextFont(
+                text: isComplete
+                    ? "Fully reimbursed"
+                    : "Pending: ${convertToMoney(Provider.of<AllWallets>(context), pending)}",
+                fontSize: 12,
+                textColor: isComplete
+                    ? getColor(context, "incomeAmount")
+                    : getColor(context, "textLight"),
+              ),
+            ],
+          ),
+          SizedBox(height: 3),
+          // Progress label row
+          if (!isComplete)
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                TextFont(
+                  text: "Received: ${convertToMoney(Provider.of<AllWallets>(context), transaction.reimbursedAmount)} / ${convertToMoney(Provider.of<AllWallets>(context), transaction.reimbursableAmount)}",
+                  fontSize: 11,
+                  textColor: getColor(context, "textLight"),
+                ),
+                TextFont(
+                  text: "${(progress * 100).toStringAsFixed(0)}%",
+                  fontSize: 11,
+                  textColor: getColor(context, "textLight"),
+                ),
+              ],
+            ),
+          SizedBox(height: 4),
+          ClipRRect(
+            borderRadius: BorderRadiusDirectional.circular(4),
+            child: LinearProgressIndicator(
+              value: progress,
+              backgroundColor: Theme.of(context)
+                  .colorScheme
+                  .secondaryContainer
+                  .withOpacity(0.5),
+              color: isComplete
+                  ? getColor(context, "incomeAmount")
+                  : Theme.of(context).colorScheme.primary,
+              minHeight: 5,
+            ),
+          ),
+        ],
       ),
     );
   }
