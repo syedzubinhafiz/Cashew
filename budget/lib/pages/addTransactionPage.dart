@@ -1698,11 +1698,29 @@ class _AddTransactionPageState extends State<AddTransactionPage>
                                 end: 22,
                                 bottom: 8,
                               ),
-                              child: TappableTextEntry(
+                              child: SettingsContainer(
                                 title: "Reimbursable Amount",
-                                placeholder: convertToMoney(
+                                description: convertToMoney(
                                     Provider.of<AllWallets>(context),
                                     selectedReimbursableAmount),
+                                icon: appStateSettings["outlinedIcons"]
+                                    ? Icons.payments_outlined
+                                    : Icons.payments_rounded,
+                                enableBorderRadius: true,
+                                backgroundColor: Theme.of(context)
+                                    .colorScheme
+                                    .secondaryContainer
+                                    .withOpacity(0.7),
+                                afterWidget: Icon(
+                                  appStateSettings["outlinedIcons"]
+                                      ? Icons.edit_outlined
+                                      : Icons.edit_rounded,
+                                  size: 20,
+                                  color: Theme.of(context)
+                                      .colorScheme
+                                      .onSecondaryContainer
+                                      .withOpacity(0.5),
+                                ),
                                 onTap: () {
                                   openBottomSheet(
                                     context,

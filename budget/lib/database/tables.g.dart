@@ -1274,6 +1274,15 @@ class $ObjectivesTable extends Objectives
       defaultConstraints:
           GeneratedColumn.constraintIsAlways('REFERENCES wallets (wallet_pk)'),
       defaultValue: const Constant("0"));
+  static const VerificationMeta _linkedWalletFkMeta =
+      const VerificationMeta('linkedWalletFk');
+  @override
+  late final GeneratedColumn<String> linkedWalletFk = GeneratedColumn<String>(
+      'linked_wallet_fk', aliasedName, true,
+      type: DriftSqlType.string,
+      requiredDuringInsert: false,
+      defaultConstraints:
+          GeneratedColumn.constraintIsAlways('REFERENCES wallets (wallet_pk)'));
   @override
   List<GeneratedColumn> get $columns => [
         objectivePk,
@@ -1290,7 +1299,8 @@ class $ObjectivesTable extends Objectives
         income,
         pinned,
         archived,
-        walletFk
+        walletFk,
+        linkedWalletFk,
       ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -1373,6 +1383,12 @@ class $ObjectivesTable extends Objectives
       context.handle(_walletFkMeta,
           walletFk.isAcceptableOrUnknown(data['wallet_fk']!, _walletFkMeta));
     }
+    if (data.containsKey('linked_wallet_fk')) {
+      context.handle(
+          _linkedWalletFkMeta,
+          linkedWalletFk.isAcceptableOrUnknown(
+              data['linked_wallet_fk']!, _linkedWalletFkMeta));
+    }
     return context;
   }
 
@@ -1412,6 +1428,8 @@ class $ObjectivesTable extends Objectives
           .read(DriftSqlType.bool, data['${effectivePrefix}archived'])!,
       walletFk: attachedDatabase.typeMapping
           .read(DriftSqlType.string, data['${effectivePrefix}wallet_fk'])!,
+      linkedWalletFk: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}linked_wallet_fk']),
     );
   }
 
@@ -1440,6 +1458,7 @@ class Objective extends DataClass implements Insertable<Objective> {
   final bool pinned;
   final bool archived;
   final String walletFk;
+  final String? linkedWalletFk;
   const Objective(
       {required this.objectivePk,
       required this.type,
@@ -1455,7 +1474,8 @@ class Objective extends DataClass implements Insertable<Objective> {
       required this.income,
       required this.pinned,
       required this.archived,
-      required this.walletFk});
+      required this.walletFk,
+      this.linkedWalletFk});
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
     final map = <String, Expression>{};
@@ -1487,6 +1507,9 @@ class Objective extends DataClass implements Insertable<Objective> {
     map['pinned'] = Variable<bool>(pinned);
     map['archived'] = Variable<bool>(archived);
     map['wallet_fk'] = Variable<String>(walletFk);
+    if (!nullToAbsent || linkedWalletFk != null) {
+      map['linked_wallet_fk'] = Variable<String>(linkedWalletFk);
+    }
     return map;
   }
 
@@ -1516,6 +1539,9 @@ class Objective extends DataClass implements Insertable<Objective> {
       pinned: Value(pinned),
       archived: Value(archived),
       walletFk: Value(walletFk),
+      linkedWalletFk: linkedWalletFk == null && nullToAbsent
+          ? const Value.absent()
+          : Value(linkedWalletFk),
     );
   }
 
@@ -1540,6 +1566,7 @@ class Objective extends DataClass implements Insertable<Objective> {
       pinned: serializer.fromJson<bool>(json['pinned']),
       archived: serializer.fromJson<bool>(json['archived']),
       walletFk: serializer.fromJson<String>(json['walletFk']),
+      linkedWalletFk: serializer.fromJson<String?>(json['linkedWalletFk']),
     );
   }
   @override
@@ -1562,6 +1589,7 @@ class Objective extends DataClass implements Insertable<Objective> {
       'pinned': serializer.toJson<bool>(pinned),
       'archived': serializer.toJson<bool>(archived),
       'walletFk': serializer.toJson<String>(walletFk),
+      'linkedWalletFk': serializer.toJson<String?>(linkedWalletFk),
     };
   }
 
@@ -1580,7 +1608,8 @@ class Objective extends DataClass implements Insertable<Objective> {
           bool? income,
           bool? pinned,
           bool? archived,
-          String? walletFk}) =>
+          String? walletFk,
+          Value<String?> linkedWalletFk = const Value.absent()}) =>
       Objective(
         objectivePk: objectivePk ?? this.objectivePk,
         type: type ?? this.type,
@@ -1600,6 +1629,8 @@ class Objective extends DataClass implements Insertable<Objective> {
         pinned: pinned ?? this.pinned,
         archived: archived ?? this.archived,
         walletFk: walletFk ?? this.walletFk,
+        linkedWalletFk:
+            linkedWalletFk.present ? linkedWalletFk.value : this.linkedWalletFk,
       );
   @override
   String toString() {
@@ -1618,7 +1649,8 @@ class Objective extends DataClass implements Insertable<Objective> {
           ..write('income: $income, ')
           ..write('pinned: $pinned, ')
           ..write('archived: $archived, ')
-          ..write('walletFk: $walletFk')
+          ..write('walletFk: $walletFk, ')
+          ..write('linkedWalletFk: $linkedWalletFk')
           ..write(')'))
         .toString();
   }
@@ -1639,7 +1671,8 @@ class Objective extends DataClass implements Insertable<Objective> {
       income,
       pinned,
       archived,
-      walletFk);
+      walletFk,
+      linkedWalletFk);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -1658,7 +1691,8 @@ class Objective extends DataClass implements Insertable<Objective> {
           other.income == this.income &&
           other.pinned == this.pinned &&
           other.archived == this.archived &&
-          other.walletFk == this.walletFk);
+          other.walletFk == this.walletFk &&
+          other.linkedWalletFk == this.linkedWalletFk);
 }
 
 class ObjectivesCompanion extends UpdateCompanion<Objective> {
@@ -1677,6 +1711,7 @@ class ObjectivesCompanion extends UpdateCompanion<Objective> {
   final Value<bool> pinned;
   final Value<bool> archived;
   final Value<String> walletFk;
+  final Value<String?> linkedWalletFk;
   final Value<int> rowid;
   const ObjectivesCompanion({
     this.objectivePk = const Value.absent(),
@@ -1694,6 +1729,7 @@ class ObjectivesCompanion extends UpdateCompanion<Objective> {
     this.pinned = const Value.absent(),
     this.archived = const Value.absent(),
     this.walletFk = const Value.absent(),
+    this.linkedWalletFk = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   ObjectivesCompanion.insert({
@@ -1712,6 +1748,7 @@ class ObjectivesCompanion extends UpdateCompanion<Objective> {
     this.pinned = const Value.absent(),
     this.archived = const Value.absent(),
     this.walletFk = const Value.absent(),
+    this.linkedWalletFk = const Value.absent(),
     this.rowid = const Value.absent(),
   })  : name = Value(name),
         amount = Value(amount),
@@ -1732,6 +1769,7 @@ class ObjectivesCompanion extends UpdateCompanion<Objective> {
     Expression<bool>? pinned,
     Expression<bool>? archived,
     Expression<String>? walletFk,
+    Expression<String>? linkedWalletFk,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -1750,6 +1788,7 @@ class ObjectivesCompanion extends UpdateCompanion<Objective> {
       if (pinned != null) 'pinned': pinned,
       if (archived != null) 'archived': archived,
       if (walletFk != null) 'wallet_fk': walletFk,
+      if (linkedWalletFk != null) 'linked_wallet_fk': linkedWalletFk,
       if (rowid != null) 'rowid': rowid,
     });
   }

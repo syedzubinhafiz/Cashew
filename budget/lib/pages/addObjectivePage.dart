@@ -3,6 +3,7 @@ import 'package:budget/functions.dart';
 import 'package:budget/pages/addCategoryPage.dart';
 import 'package:budget/pages/addTransactionPage.dart';
 import 'package:budget/pages/editObjectivesPage.dart';
+import 'package:budget/pages/editWalletsPage.dart';
 import 'package:budget/pages/objectivesListPage.dart';
 import 'package:budget/pages/premiumPage.dart';
 import 'package:budget/pages/settingsPage.dart';
@@ -78,6 +79,8 @@ class _AddObjectivePageState extends State<AddObjectivePage>
   bool selectedPin = true;
   String selectedWalletPk = appStateSettings["selectedWalletPk"];
   bool isDifferenceOnlyLoan = false;
+  String? selectedLinkedWalletPk;
+  bool _tagExistingTransfers = false;
 
   FocusNode _titleFocusNode = FocusNode();
   late TabController _incomeTabController =
@@ -238,6 +241,15 @@ class _AddObjectivePageState extends State<AddObjectivePage>
     int rowId = await database.createOrUpdateObjective(
         insert: widget.objective == null, await createObjective());
 
+    // Tag existing transfers into the linked wallet if the user opted in
+    if (selectedLinkedWalletPk != null && _tagExistingTransfers) {
+      final Objective objectiveJustAdded =
+          await database.getObjectiveFromRowId(rowId);
+      await database.tagExistingTransfersToGoal(
+          selectedLinkedWalletPk!, objectiveJustAdded.objectivePk);
+      _tagExistingTransfers = false;
+    }
+
     // Create the initial transaction if it is a loan
     if (widget.objective == null &&
         widget.objectiveType == ObjectiveType.loan &&
@@ -303,6 +315,7 @@ class _AddObjectivePageState extends State<AddObjectivePage>
       walletFk: selectedWalletPk,
       archived: widget.objective?.archived ?? false,
       type: objectiveType,
+      linkedWalletFk: selectedLinkedWalletPk,
     );
   }
 
@@ -338,6 +351,7 @@ class _AddObjectivePageState extends State<AddObjectivePage>
       selectedAmount = widget.objective!.amount;
       selectedPin = widget.objective!.pinned;
       selectedWalletPk = widget.objective!.walletFk;
+      selectedLinkedWalletPk = widget.objective!.linkedWalletFk;
       isDifferenceOnlyLoan = getIsDifferenceOnlyLoan(widget.objective!);
 
       selectedIncome = widget.objective!.income;
@@ -346,6 +360,7 @@ class _AddObjectivePageState extends State<AddObjectivePage>
       } else {
         _incomeTabController.animateTo(0);
       }
+      determineBottomButton();
     } else {
       Future.delayed(Duration.zero, () async {
         if (widget.objective == null) {
@@ -922,6 +937,123 @@ class _AddObjectivePageState extends State<AddObjectivePage>
                       ],
                     ),
                   ),
+                ),
+              ),
+            ),
+
+          if (objectiveType == ObjectiveType.goal && selectedIncome == true)
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsetsDirectional.symmetric(
+                    horizontal: 20, vertical: 4),
+                child: StreamBuilder<TransactionWallet?>(
+                  stream: selectedLinkedWalletPk == null
+                      ? Stream.value(null)
+                      : database
+                          .getWalletInstance(selectedLinkedWalletPk!)
+                          .asStream(),
+                  builder: (context, snapshot) {
+                    TransactionWallet? linkedWallet = snapshot.data;
+                    return Tappable(
+                      color: getColor(context, "lightDarkAccentHeavyLight"),
+                      borderRadius: 12,
+                      onTap: () async {
+                        TransactionWallet? result = await selectWalletPopup(
+                          context,
+                          selectedWallet: linkedWallet,
+                          allowEditWallet: false,
+                          title: "Link Account",
+                        );
+                        if (result != null) {
+                          setState(() {
+                            selectedLinkedWalletPk = result.walletPk;
+                            _tagExistingTransfers = false;
+                          });
+                          // Ask whether to count past transfers
+                          bool? tagExisting = await openPopup(
+                            context,
+                            title: "Count Past Transfers",
+                            description:
+                                "Count transfers already in \"${result.name}\" toward this goal?",
+                            icon: appStateSettings["outlinedIcons"]
+                                ? Icons.history_outlined
+                                : Icons.history_rounded,
+                            onCancel: () {
+                              popRoute(context, false);
+                            },
+                            onCancelLabel: "No",
+                            onSubmit: () {
+                              popRoute(context, true);
+                            },
+                            onSubmitLabel: "Yes",
+                          );
+                          if (tagExisting == true) {
+                            setState(() {
+                              _tagExistingTransfers = true;
+                            });
+                          }
+                          determineBottomButton();
+                        }
+                      },
+                      onLongPress: selectedLinkedWalletPk == null
+                          ? null
+                          : () {
+                              setState(() {
+                                selectedLinkedWalletPk = null;
+                              });
+                            },
+                      child: Padding(
+                        padding: const EdgeInsetsDirectional.symmetric(
+                            horizontal: 15, vertical: 12),
+                        child: Row(
+                          children: [
+                            Icon(
+                              appStateSettings["outlinedIcons"]
+                                  ? Icons.account_balance_wallet_outlined
+                                  : Icons.account_balance_wallet_rounded,
+                              size: 22,
+                              color: selectedLinkedWalletPk != null
+                                  ? Theme.of(context).colorScheme.primary
+                                  : getColor(context, "textLight"),
+                            ),
+                            SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  TextFont(
+                                    text: "Link Account",
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                  TextFont(
+                                    text: linkedWallet != null
+                                        ? linkedWallet.name
+                                        : "Transfers into this account auto-tag this goal",
+                                    fontSize: 13,
+                                    textColor: getColor(context, "textLight"),
+                                    maxLines: 2,
+                                  ),
+                                ],
+                              ),
+                            ),
+                            if (selectedLinkedWalletPk != null)
+                              IconButton(
+                                icon: Icon(Icons.close_rounded, size: 18),
+                                onPressed: () {
+                                  setState(() {
+                                    selectedLinkedWalletPk = null;
+                                  });
+                                },
+                                color: getColor(context, "textLight"),
+                                padding: EdgeInsetsDirectional.zero,
+                                constraints: BoxConstraints(),
+                              ),
+                          ],
+                        ),
+                      ),
+                    );
+                  },
                 ),
               ),
             ),

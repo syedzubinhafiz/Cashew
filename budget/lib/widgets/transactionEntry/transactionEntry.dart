@@ -781,6 +781,7 @@ class _ReimbursementProgressBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    AllWallets allWallets = Provider.of<AllWallets>(context);
     double progress = transaction.reimbursableAmount > 0
         ? (transaction.reimbursedAmount / transaction.reimbursableAmount)
             .clamp(0.0, 1.0)
@@ -788,72 +789,76 @@ class _ReimbursementProgressBar extends StatelessWidget {
     bool isComplete =
         transaction.reimbursedAmount >= transaction.reimbursableAmount;
     double netCost = transaction.amount.abs() - transaction.reimbursedAmount;
-    double pending = (transaction.reimbursableAmount - transaction.reimbursedAmount)
+    double pending = (transaction.reimbursableAmount -
+            transaction.reimbursedAmount)
         .clamp(0.0, double.infinity);
-    return Padding(
-      padding:
-          const EdgeInsetsDirectional.only(start: 25, end: 25, bottom: 8),
+
+    Color accentColor = isComplete
+        ? getColor(context, "incomeAmount")
+        : Theme.of(context).colorScheme.primary;
+    Color primaryTextColor = getColor(context, "black");
+    Color secondaryTextColor = Theme.of(context).colorScheme.onSurfaceVariant;
+
+    return Container(
+      padding: const EdgeInsetsDirectional.only(
+          start: 14, end: 14, top: 12, bottom: 14),
+      decoration: BoxDecoration(
+        color: getColor(context, "lightDarkAccentHeavyLight"),
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // Row 1: Net cost & pending amount
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              // Left: net cost label
               TextFont(
                 text: isComplete
-                    ? "Net cost: ${convertToMoney(Provider.of<AllWallets>(context), netCost)}"
-                    : "Net so far: ${convertToMoney(Provider.of<AllWallets>(context), netCost)}",
-                fontSize: 12,
+                    ? "Net Cost: ${convertToMoney(allWallets, netCost)}"
+                    : "Net So Far: ${convertToMoney(allWallets, netCost)}",
+                fontSize: 13,
                 fontWeight: FontWeight.bold,
-                textColor: isComplete
-                    ? getColor(context, "incomeAmount")
-                    : getColor(context, "black"),
+                textColor: primaryTextColor,
               ),
-              // Right: pending or "fully reimbursed"
               TextFont(
                 text: isComplete
-                    ? "Fully reimbursed"
-                    : "Pending: ${convertToMoney(Provider.of<AllWallets>(context), pending)}",
-                fontSize: 12,
-                textColor: isComplete
-                    ? getColor(context, "incomeAmount")
-                    : getColor(context, "textLight"),
+                    ? "Fully Reimbursed"
+                    : "Pending: ${convertToMoney(allWallets, pending)}",
+                fontSize: 13,
+                textColor: isComplete ? accentColor : secondaryTextColor,
               ),
             ],
           ),
-          SizedBox(height: 3),
-          // Progress label row
-          if (!isComplete)
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                TextFont(
-                  text: "Received: ${convertToMoney(Provider.of<AllWallets>(context), transaction.reimbursedAmount)} / ${convertToMoney(Provider.of<AllWallets>(context), transaction.reimbursableAmount)}",
-                  fontSize: 11,
-                  textColor: getColor(context, "textLight"),
-                ),
-                TextFont(
-                  text: "${(progress * 100).toStringAsFixed(0)}%",
-                  fontSize: 11,
-                  textColor: getColor(context, "textLight"),
-                ),
-              ],
-            ),
-          SizedBox(height: 4),
+          SizedBox(height: 10),
+          // Progress bar
           ClipRRect(
-            borderRadius: BorderRadiusDirectional.circular(4),
+            borderRadius: BorderRadiusDirectional.circular(6),
             child: LinearProgressIndicator(
               value: progress,
-              backgroundColor: Theme.of(context)
-                  .colorScheme
-                  .secondaryContainer
-                  .withOpacity(0.5),
-              color: isComplete
-                  ? getColor(context, "incomeAmount")
-                  : Theme.of(context).colorScheme.primary,
-              minHeight: 5,
+              backgroundColor:
+                  Theme.of(context).colorScheme.secondaryContainer,
+              color: accentColor,
+              minHeight: 6,
             ),
+          ),
+          SizedBox(height: 8),
+          // Row 2: Received breakdown & percentage
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              TextFont(
+                text:
+                    "Received: ${convertToMoney(allWallets, transaction.reimbursedAmount)} / ${convertToMoney(allWallets, transaction.reimbursableAmount)}",
+                fontSize: 12,
+                textColor: secondaryTextColor,
+              ),
+              TextFont(
+                text: "${(progress * 100).toStringAsFixed(0)}%",
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                textColor: accentColor,
+              ),
+            ],
           ),
         ],
       ),

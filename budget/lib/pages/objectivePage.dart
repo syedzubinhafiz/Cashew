@@ -575,6 +575,126 @@ class _ObjectivePageContentState extends State<_ObjectivePageContent> {
                     child: numberTransactionsWidget,
                   ),
                 ),
+              if (widget.objective.type == ObjectiveType.goal &&
+                  widget.objective.income == true &&
+                  widget.objective.linkedWalletFk != null)
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsetsDirectional.symmetric(
+                        horizontal: 20, vertical: 8),
+                    child: StreamBuilder<double?>(
+                      stream: database.watchOutflowsFromLinkedWallet(
+                        Provider.of<AllWallets>(context),
+                        widget.objective.linkedWalletFk!,
+                      ),
+                      builder: (context, snapshot) {
+                        double outflows = (snapshot.data ?? 0).abs();
+                        if (outflows == 0) return SizedBox.shrink();
+                        return Opacity(
+                          opacity: 0.7,
+                          child: Row(
+                            children: [
+                              Icon(
+                                appStateSettings["outlinedIcons"]
+                                    ? Icons.arrow_upward_outlined
+                                    : Icons.arrow_upward_rounded,
+                                size: 15,
+                                color: getColor(context, "textLight"),
+                              ),
+                              SizedBox(width: 5),
+                              TextFont(
+                                text: "Outflows from linked account" +
+                                    ": " +
+                                    convertToMoney(
+                                        Provider.of<AllWallets>(context),
+                                        outflows),
+                                fontSize: 13,
+                                textColor: getColor(context, "textLight"),
+                              ),
+                            ],
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                ),
+              if (widget.objective.type == ObjectiveType.goal &&
+                  widget.objective.income == true &&
+                  widget.objective.linkedWalletFk != null)
+                SliverToBoxAdapter(
+                  child: StreamBuilder<double>(
+                    stream: database.watchUntaggedTransferTotal(
+                      Provider.of<AllWallets>(context),
+                      widget.objective.linkedWalletFk!,
+                      widget.objective.objectivePk,
+                    ),
+                    builder: (context, snapshot) {
+                      double untaggedTotal = snapshot.data ?? 0;
+                      if (untaggedTotal <= 0) return SizedBox.shrink();
+                      AllWallets allWallets =
+                          Provider.of<AllWallets>(context);
+                      return Padding(
+                        padding: const EdgeInsetsDirectional.symmetric(
+                            horizontal: 15, vertical: 4),
+                        child: Tappable(
+                          onTap: () async {
+                            await database.tagExistingTransfersToGoal(
+                              widget.objective.linkedWalletFk!,
+                              widget.objective.objectivePk,
+                            );
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: TextFont(
+                                  text: "Transfers counted toward goal",
+                                  textColor: Colors.white,
+                                ),
+                                backgroundColor:
+                                    Theme.of(context).colorScheme.primary,
+                              ),
+                            );
+                          },
+                          borderRadius: 12,
+                          color: Theme.of(context)
+                              .colorScheme
+                              .primary
+                              .withValues(alpha: 0.1),
+                          child: Padding(
+                            padding: const EdgeInsetsDirectional.symmetric(
+                                horizontal: 15, vertical: 12),
+                            child: Row(
+                              children: [
+                                Icon(
+                                  appStateSettings["outlinedIcons"]
+                                      ? Icons.add_circle_outline_outlined
+                                      : Icons.add_circle_rounded,
+                                  color:
+                                      Theme.of(context).colorScheme.primary,
+                                  size: 22,
+                                ),
+                                SizedBox(width: 10),
+                                Expanded(
+                                  child: TextFont(
+                                    text: convertToMoney(
+                                            allWallets, untaggedTotal) +
+                                        " in " +
+                                        (allWallets.indexedByPk[widget
+                                                    .objective.linkedWalletFk]
+                                                ?.name ??
+                                            "linked account") +
+                                        " not yet counted — Tap to include",
+                                    fontSize: 14,
+                                    textColor:
+                                        Theme.of(context).colorScheme.primary,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ),
               TransactionEntries(
                 null,
                 null,
