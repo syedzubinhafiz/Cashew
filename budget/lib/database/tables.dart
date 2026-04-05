@@ -7226,6 +7226,50 @@ class FinanceDatabase extends _$FinanceDatabase {
     return totalDoubleStream(mergedStreams);
   }
 
+  /// Records a reimbursement payment against [originalTransaction].
+  /// Creates an income transaction in [destinationWallet] (same category as original)
+  /// and updates [reimbursedAmount] on the original transaction.
+  Future<void> recordReimbursement({
+    required Transaction originalTransaction,
+    required double reimbursementAmount,
+    required TransactionWallet destinationWallet,
+    required DateTime dateTime,
+    String? note,
+  }) async {
+    // 1. Create income transaction (positive amount = income)
+    await createOrUpdateTransaction(
+      Transaction(
+        transactionPk: uuid.v4(),
+        name: ("Reimbursement: ${originalTransaction.name}").trim(),
+        amount: reimbursementAmount.abs(),
+        income: true,
+        paid: true,
+        skipPaid: false,
+        dateCreated: dateTime,
+        categoryFk: originalTransaction.categoryFk,
+        walletFk: destinationWallet.walletPk,
+        note: note ?? "",
+        objectiveFk: null,
+        objectiveLoanFk: null,
+        isReimbursable: false,
+        reimbursableAmount: 0,
+        reimbursedAmount: 0,
+      ),
+      insert: true,
+    );
+
+    // 2. Update reimbursedAmount on the original transaction
+    double newReimbursed =
+        (originalTransaction.reimbursedAmount + reimbursementAmount)
+            .clamp(0.0, originalTransaction.reimbursableAmount);
+    await (update(transactions)
+          ..where(
+              (t) => t.transactionPk.equals(originalTransaction.transactionPk)))
+        .write(TransactionsCompanion(
+      reimbursedAmount: Value(newReimbursed),
+    ));
+  }
+
   Stream<TotalWithCount?> watchTotalCountOfTransactionsWithSearchFilters({
     required AllWallets allWallets,
     SearchFilters? searchFilters,

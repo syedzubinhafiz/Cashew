@@ -23,6 +23,7 @@ import 'package:flutter/widgets.dart';
 import 'package:provider/provider.dart';
 import 'package:budget/colors.dart';
 import 'package:budget/widgets/openBottomSheet.dart';
+import 'package:budget/widgets/recordReimbursementSheet.dart';
 import 'package:visibility_detector/visibility_detector.dart';
 import 'package:budget/widgets/transactionEntry/swipeToSelectTransactions.dart';
 import 'package:budget/widgets/transactionEntry/transactionEntryAmount.dart';
@@ -743,7 +744,16 @@ class TransactionEntry extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         transactionEntryWidget,
-                        _ReimbursementProgressBar(transaction: transaction),
+                        _ReimbursementProgressBar(
+                          transaction: transaction,
+                          onTap: () {
+                            openBottomSheet(
+                              context,
+                              RecordReimbursementSheet(
+                                  transaction: transaction),
+                            );
+                          },
+                        ),
                       ],
                     );
                   }
@@ -776,8 +786,10 @@ class TransactionEntry extends StatelessWidget {
 }
 
 class _ReimbursementProgressBar extends StatelessWidget {
-  const _ReimbursementProgressBar({required this.transaction});
+  const _ReimbursementProgressBar(
+      {required this.transaction, this.onTap, super.key});
   final Transaction transaction;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
@@ -799,7 +811,11 @@ class _ReimbursementProgressBar extends StatelessWidget {
     Color primaryTextColor = getColor(context, "black");
     Color secondaryTextColor = Theme.of(context).colorScheme.onSurfaceVariant;
 
-    return Container(
+    return Tappable(
+      onTap: isComplete ? null : onTap,
+      borderRadius: 0,
+      color: Colors.transparent,
+      child: Container(
       padding: const EdgeInsetsDirectional.only(
           start: 14, end: 14, top: 12, bottom: 14),
       decoration: BoxDecoration(
@@ -862,6 +878,7 @@ class _ReimbursementProgressBar extends StatelessWidget {
           ),
         ],
       ),
+    ),
     );
   }
 }
