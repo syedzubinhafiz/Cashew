@@ -7,11 +7,9 @@ import 'package:budget/widgets/fab.dart';
 import 'package:budget/widgets/fadeIn.dart';
 import 'package:budget/widgets/framework/pageFramework.dart';
 import 'package:budget/widgets/incomeExpenseTabSelector.dart';
-import 'package:budget/widgets/navigationSidebar.dart';
 import 'package:budget/widgets/noResults.dart';
 import 'package:budget/widgets/openBottomSheet.dart';
 import 'package:budget/widgets/openPopup.dart';
-import 'package:budget/widgets/selectedTransactionsAppBar.dart';
 import 'package:budget/widgets/textWidgets.dart';
 import 'package:budget/widgets/transactionEntry/transactionEntry.dart';
 import 'package:flutter/material.dart';
@@ -177,23 +175,25 @@ class ReimbursementsPageState extends State<ReimbursementsPage>
                       key: ValueKey(item.transactionPk),
                       curve: Curves.easeInOut,
                       animation: animation,
-                      child: Column(
-                        children: [
-                          TransactionEntry(
-                            openPage: AddTransactionPage(
-                              transaction: item,
-                              routesToPopAfterDelete:
-                                  RoutesToPopAfterDelete.One,
-                            ),
+                      child: Padding(
+                        padding: EdgeInsetsDirectional.only(
+                          start: getHorizontalPaddingConstrained(context) + 13,
+                          end: getHorizontalPaddingConstrained(context) + 13,
+                          bottom: 12,
+                        ),
+                        child: TransactionEntry(
+                          openPage: AddTransactionPage(
                             transaction: item,
-                            listID: pageId,
-                            transactionAfter: nullIfIndexOutOfRange(
-                                snapshot.data!, index + 1),
-                            transactionBefore: nullIfIndexOutOfRange(
-                                snapshot.data!, index - 1),
+                            routesToPopAfterDelete:
+                                RoutesToPopAfterDelete.One,
                           ),
-                          ReimbursementProgressBar(transaction: item),
-                        ],
+                          transaction: item,
+                          listID: pageId,
+                          transactionAfter: nullIfIndexOutOfRange(
+                              snapshot.data!, index + 1),
+                          transactionBefore: nullIfIndexOutOfRange(
+                              snapshot.data!, index - 1),
+                        ),
                       ),
                     );
                   },
@@ -212,61 +212,3 @@ class ReimbursementsPageState extends State<ReimbursementsPage>
   }
 }
 
-class ReimbursementProgressBar extends StatelessWidget {
-  const ReimbursementProgressBar({required this.transaction, super.key});
-  final Transaction transaction;
-
-  @override
-  Widget build(BuildContext context) {
-    double progress = transaction.reimbursableAmount > 0
-        ? (transaction.reimbursedAmount / transaction.reimbursableAmount)
-            .clamp(0.0, 1.0)
-        : 0;
-    bool isComplete =
-        transaction.reimbursedAmount >= transaction.reimbursableAmount;
-    return Padding(
-      padding:
-          const EdgeInsetsDirectional.only(start: 25, end: 25, bottom: 8),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              TextFont(
-                text: isComplete
-                    ? "Fully Reimbursed"
-                    : "Reimbursed: ${convertToMoney(Provider.of<AllWallets>(context), transaction.reimbursedAmount)} / ${convertToMoney(Provider.of<AllWallets>(context), transaction.reimbursableAmount)}",
-                fontSize: 12,
-                textColor: isComplete
-                    ? getColor(context, "incomeAmount")
-                    : getColor(context, "textLight"),
-              ),
-              if (!isComplete)
-                TextFont(
-                  text: "${(progress * 100).toStringAsFixed(0)}%",
-                  fontSize: 12,
-                  textColor: getColor(context, "textLight"),
-                ),
-            ],
-          ),
-          SizedBox(height: 4),
-          ClipRRect(
-            borderRadius: BorderRadiusDirectional.circular(4),
-            child: LinearProgressIndicator(
-              value: progress,
-              backgroundColor: Theme.of(context)
-                  .colorScheme
-                  .secondaryContainer
-                  .withOpacity(0.5),
-              color: isComplete
-                  ? getColor(context, "incomeAmount")
-                  : Theme.of(context).colorScheme.primary,
-              minHeight: 5,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}

@@ -26,7 +26,7 @@ import 'package:budget/pages/activityPage.dart';
 import 'package:flutter/material.dart' show RangeValues;
 part 'tables.g.dart';
 
-int schemaVersionGlobal = 47;
+int schemaVersionGlobal = 48;
 
 // To update and migrate the database, check the README
 
@@ -539,6 +539,9 @@ class Objectives extends Table {
   BoolColumn get archived => boolean().withDefault(const Constant(false))();
   TextColumn get walletFk =>
       text().references(Wallets, #walletPk).withDefault(const Constant("0"))();
+  // For savings goals: auto-tag transfers into this wallet to this goal
+  TextColumn get linkedWalletFk =>
+      text().references(Wallets, #walletPk).nullable()();
 
   @override
   Set<Column> get primaryKey => {objectivePk};
@@ -1203,6 +1206,16 @@ class FinanceDatabase extends _$FinanceDatabase {
               } catch (e) {
                 print(
                     "Migration Error: Error creating column transactions.reimbursedAmount " +
+                        e.toString());
+              }
+            },
+            from47To48: (m, schema) async {
+              try {
+                await m.addColumn(
+                    schema.objectives, schema.objectives.linkedWalletFk);
+              } catch (e) {
+                print(
+                    "Migration Error: Error creating column objectives.linkedWalletFk " +
                         e.toString());
               }
             },
@@ -5713,6 +5726,78 @@ class FinanceDatabase extends _$FinanceDatabase {
     return totalDoubleStream(mergedStreams);
   }
 
+  // Tag all existing untagged positive balance corrections (transfers in) to a
+  // wallet as belonging to a goal. Used when user chooses to count prior transfers.
+  Future<int> tagExistingTransfersToGoal(
+      String walletPk, String objectivePk) async {
+    return (update(transactions)
+          ..where((t) =>
+              t.walletFk.equals(walletPk) &
+              t.categoryFk.equals("0") &
+              t.amount.isBiggerThanValue(0) &
+              t.objectiveFk.isNull()))
+        .write(TransactionsCompanion(objectiveFk: Value(objectivePk)));
+  }
+
+  // Watch sum of untagged positive balance corrections (transfers in) to a
+  // wallet that haven't been counted toward a goal yet.
+  Stream<double> watchUntaggedTransferTotal(
+      AllWallets allWallets, String walletPk, String objectivePk) {
+    List<Stream<double?>> mergedStreams = [];
+    for (TransactionWallet wallet in allWallets.list) {
+      if (wallet.walletPk != walletPk) continue;
+      final totalAmt = transactions.amount
+          .sum(filter: transactions.amount.isBiggerThanValue(0));
+      final query = selectOnly(transactions)
+        ..addColumns([totalAmt])
+        ..where(transactions.walletFk.equals(walletPk) &
+            transactions.categoryFk.equals("0") &
+            transactions.amount.isBiggerThanValue(0) &
+            transactions.objectiveFk.isNull());
+      mergedStreams.add(query
+          .map(((row) =>
+              (row.read(totalAmt) ?? 0) *
+              (amountRatioToPrimaryCurrency(allWallets, wallet.currency))))
+          .watchSingle());
+    }
+    if (mergedStreams.isEmpty) return Stream.value(0.0);
+    return totalDoubleStream(mergedStreams).map((v) => v ?? 0.0);
+  }
+
+  // Watch savings objectives that have a specific wallet linked (for auto-suggest in transfer)
+  Stream<List<Objective>> watchObjectivesWithLinkedWallet(String walletPk) {
+    return (select(objectives)
+          ..where((tbl) =>
+              tbl.linkedWalletFk.equals(walletPk) &
+              tbl.type.equals(ObjectiveType.goal.index) &
+              tbl.income.equals(true) &
+              tbl.archived.equals(false)))
+        .watch();
+  }
+
+  // Watch total outflows (negative balance corrections) from a linked wallet
+  Stream<double?> watchOutflowsFromLinkedWallet(
+      AllWallets allWallets, String walletPk) {
+    List<Stream<double?>> mergedStreams = [];
+    for (TransactionWallet wallet in allWallets.list) {
+      if (wallet.walletPk != walletPk) continue;
+      final totalAmt = transactions.amount.sum(
+          filter: transactions.paid.equals(true) &
+              transactions.categoryFk.equals("0") &
+              transactions.amount.isSmallerThanValue(0));
+      final query = selectOnly(transactions)
+        ..addColumns([totalAmt])
+        ..where(transactions.walletFk.equals(walletPk));
+      mergedStreams.add(query
+          .map(((row) =>
+              (row.read(totalAmt) ?? 0) *
+              (amountRatioToPrimaryCurrency(allWallets, wallet.currency))))
+          .watchSingle());
+    }
+    if (mergedStreams.isEmpty) return Stream.value(0.0);
+    return totalDoubleStream(mergedStreams);
+  }
+
   Future<double?> getTotalTowardsObjective(AllWallets allWallets,
       String objectivePk, ObjectiveType objectiveType) async {
     double totalAmount = 0;
@@ -6143,7 +6228,7 @@ class FinanceDatabase extends _$FinanceDatabase {
               isFilterSelectedWithDefaults(budgetTransactionFilters,
                   BudgetTransactionFilters.includeBalanceCorrection),
             ) |
-            (tbl.categoryFk.equals("0").not())
+            (tbl.categoryFk.equals("0").not() | tbl.objectiveFk.isNotNull())
         : Constant(true);
 
     return memberIncluded &

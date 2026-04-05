@@ -25,6 +25,8 @@ import 'package:budget/widgets/tappableTextEntry.dart';
 import 'package:budget/widgets/textInput.dart';
 import 'package:budget/widgets/textWidgets.dart';
 import 'package:budget/widgets/currencyPicker.dart';
+import 'package:budget/widgets/noResults.dart';
+import 'package:budget/widgets/radioItems.dart';
 import 'package:budget/widgets/transactionEntry/incomeAmountArrow.dart';
 import 'package:budget/widgets/util/widgetSize.dart';
 import 'package:easy_localization/easy_localization.dart';
@@ -990,6 +992,7 @@ Future<String?> createCorrectionTransaction(
   String? title,
   String? pairedTransactionFk,
   String? objectiveLoanPk,
+  String? objectiveFk,
 }) async {
   await initializeBalanceCorrectionCategory();
 
@@ -1009,6 +1012,7 @@ Future<String?> createCorrectionTransaction(
       paid: true,
       skipPaid: false,
       objectiveLoanFk: objectiveLoanPk,
+      objectiveFk: objectiveFk,
     ),
   );
   if (rowId != null) {
@@ -1065,6 +1069,8 @@ class _TransferBalancePopupState extends State<TransferBalancePopup> {
           : Provider.of<AllWallets>(context, listen: false)
               .indexedByPk[appStateSettings["selectedWalletPk"]];
 
+  String? selectedGoalPk;
+
   // double transferFee = 0;
 
   @override
@@ -1077,6 +1083,20 @@ class _TransferBalancePopupState extends State<TransferBalancePopup> {
         setState(() {});
       }
     });
+  }
+
+  Future<void> _autoSelectGoalForWallet(TransactionWallet wallet) async {
+    List<Objective> linked =
+        await database.watchObjectivesWithLinkedWallet(wallet.walletPk).first;
+    if (linked.isNotEmpty && mounted) {
+      setState(() {
+        selectedGoalPk = linked.first.objectivePk;
+      });
+    } else if (mounted) {
+      setState(() {
+        selectedGoalPk = null;
+      });
+    }
   }
 
   Widget walletSelector(TransactionWallet? wallet,
@@ -1189,6 +1209,7 @@ class _TransferBalancePopupState extends State<TransferBalancePopup> {
               " " +
               (isNegative ? "transfer-out".tr() : "transfer-in".tr()))
           : selectedTitle,
+      objectiveFk: selectedGoalPk,
     );
 
     await createCorrectionTransaction(
@@ -1370,9 +1391,124 @@ class _TransferBalancePopupState extends State<TransferBalancePopup> {
                 setState(() {
                   walletTo = wallet;
                 });
+                _autoSelectGoalForWallet(wallet);
               }),
             ],
           ),
+          if (walletTo != null)
+            StreamBuilder<List<Objective>>(
+              stream:
+                  database.watchObjectivesWithLinkedWallet(walletTo!.walletPk),
+              builder: (context, snapshot) {
+                List<Objective> linkedGoals = snapshot.data ?? [];
+                if (linkedGoals.isEmpty && selectedGoalPk == null)
+                  return SizedBox.shrink();
+                return Padding(
+                  padding: const EdgeInsetsDirectional.only(top: 8),
+                  child: Tappable(
+                    color: getColor(context, "lightDarkAccentHeavyLight"),
+                    borderRadius: 12,
+                    onTap: () async {
+                      // Show all non-archived savings goals and let user pick
+                      await openBottomSheet(
+                        context,
+                        PopupFramework(
+                          title: "Tag Savings Goal",
+                          child: StreamBuilder<List<Objective>>(
+                            stream: database.watchAllObjectives(
+                              objectiveType: ObjectiveType.goal,
+                            ),
+                            builder: (context, snap) {
+                              List<Objective> goals =
+                                  (snap.data ?? []).where((o) => o.income).toList();
+                              if (goals.isEmpty)
+                                return Padding(
+                                  padding: const EdgeInsetsDirectional.only(
+                                      bottom: 15),
+                                  child: NoResults(
+                                      message: "No savings goals found"),
+                                );
+                              return RadioItems<Objective?>(
+                                initial: selectedGoalPk == null
+                                    ? null
+                                    : goals.cast<Objective?>().firstWhere(
+                                          (g) =>
+                                              g?.objectivePk == selectedGoalPk,
+                                          orElse: () => null,
+                                        ),
+                                getSelected: (Objective? obj) {
+                                  if (obj == null)
+                                    return selectedGoalPk == null;
+                                  return obj.objectivePk == selectedGoalPk;
+                                },
+                                items: [null, ...goals],
+                                displayFilter: (Objective? obj) =>
+                                    obj?.name ?? "None",
+                                onChanged: (Objective? obj) {
+                                  setState(() {
+                                    selectedGoalPk = obj?.objectivePk;
+                                  });
+                                  popRoute(context);
+                                },
+                              );
+                            },
+                          ),
+                        ),
+                      );
+                    },
+                    child: Padding(
+                      padding: const EdgeInsetsDirectional.symmetric(
+                          horizontal: 15, vertical: 10),
+                      child: Row(
+                        children: [
+                          Icon(
+                            appStateSettings["outlinedIcons"]
+                                ? Icons.savings_outlined
+                                : Icons.savings_rounded,
+                            size: 20,
+                            color: selectedGoalPk != null
+                                ? Theme.of(context).colorScheme.primary
+                                : getColor(context, "textLight"),
+                          ),
+                          SizedBox(width: 10),
+                          Expanded(
+                            child: selectedGoalPk == null
+                                ? TextFont(
+                                    text: "Tag Savings Goal",
+                                    fontSize: 15,
+                                    textColor: getColor(context, "textLight"),
+                                  )
+                                : StreamBuilder<Objective>(
+                                    stream: database
+                                        .getObjective(selectedGoalPk!),
+                                    builder: (context, snap) {
+                                      return TextFont(
+                                        text: snap.data?.name ??
+                                            "Tag Savings Goal",
+                                        fontSize: 15,
+                                        fontWeight: FontWeight.bold,
+                                      );
+                                    },
+                                  ),
+                          ),
+                          if (selectedGoalPk != null)
+                            GestureDetector(
+                              onTap: () {
+                                setState(() {
+                                  selectedGoalPk = null;
+                                });
+                              },
+                              child: Icon(Icons.close_rounded,
+                                  size: 18,
+                                  color: getColor(context, "textLight")),
+                            ),
+                        ],
+                      ),
+                    ),
+                  ),
+                );
+              },
+            ),
           SelectAmount(
             amountTappableBuilder: (onLongPress, amountConverted) {
               return Padding(
